@@ -14,11 +14,11 @@ import (
 	//    "github.com/jeffail/tunny"
 )
 
-const (
-	SaveDir = "/tmp/style.com/"
-)
+var SaveDir string
+var CollectionUrl string
 
 func init() {
+
 	//    numCPUs := runtime.NumCPU()
 	//    runtime.GOMAXPROCS(numCPUs)
 	//    pool, _ := tunny.CreatePoolGeneric(numCPUs).Open()
@@ -27,20 +27,36 @@ func init() {
 
 func main() {
 
-	processSeasonUrl("http://www.style.com/fashion-shows/pre-fall-2015/")
+	argsWithProg := os.Args
+	log.Println(argsWithProg)
+	if len(argsWithProg) != 3 {
+		log.Println("usage:   ./crawler url_of_collection /position/you/want/to/save/picutures")
+		log.Println("example: ./crawler http://www.style.com/fashion-shows/pre-fall-2015/ /tmp/style.com")
+		return
+	} else {
+		CollectionUrl = argsWithProg[1]
+		SaveDir = argsWithProg[2]
+		if SaveDir[len(SaveDir)-1:] != "/" {
+			SaveDir = SaveDir + "/"
+		}
+		log.Println("下载链接:" + CollectionUrl)
+		log.Println("保存地址:" + SaveDir)
+		processSeasonUrl(CollectionUrl)
+	}
+
 }
 
 func processSeasonUrl(url string) {
 	doc, err := goquery.NewDocument(url)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return
 	}
 	brands := make([]string, 0, 0)
 	doc.Find("#s0-all li a").Each(func(i int, s *goquery.Selection) {
 		href, exist := s.Attr("href")
 		if !exist {
-			log.Fatal("not exist : ", href)
+			log.Println("not exist : ", href)
 		}
 		brand := href[strings.LastIndex(href, "/")+1 : len(href)]
 		brands = append(brands, brand)
@@ -68,7 +84,7 @@ func processCollection(brand string, index int, total int, wg *sync.WaitGroup, w
 	collectionUrl := "http://www.style.com/slideshows/fashion-shows/pre-fall-2015/" + brand + "/collection"
 
 	if doc, err := goquery.NewDocument(collectionUrl); err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	} else {
 		doc.Find("script").Each(func(i int, s *goquery.Selection) {
 			if i == 4 {
@@ -82,7 +98,7 @@ func processCollection(brand string, index int, total int, wg *sync.WaitGroup, w
 
 				resultMap := ResultMap{}
 				if err := json.Unmarshal(b, &resultMap); err != nil {
-					log.Fatal(err)
+					log.Println(err)
 				} else {
 
 					wg := sync.WaitGroup{}
@@ -130,7 +146,7 @@ func saveImage(description string, url string, savePath string, saveName string,
 	if resp != nil && resp.Body != nil {
 		defer resp.Body.Close()
 	} else {
-		log.Fatal(err)
+		log.Println(err)
 	}
 	if resp == nil || resp.Body == nil || err != nil || resp.StatusCode != http.StatusOK {
 		log.Println("error : " + description)
@@ -145,8 +161,8 @@ func saveImage(description string, url string, savePath string, saveName string,
 
 	if _, err := os.Stat(savePath); os.IsNotExist(err) {
 		if err1 := os.MkdirAll(savePath, os.ModePerm); err1 != nil {
-			log.Fatal("error creating directory " + savePath)
-			log.Fatal(err1)
+			log.Println("error creating directory " + savePath)
+			log.Println(err1)
 		} else {
 			log.Println("mkdir : " + savePath)
 		}
